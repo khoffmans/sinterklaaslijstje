@@ -1,0 +1,31 @@
+{
+  "rules": {
+    "names": {
+      ".read": true,
+      "$name": {
+        ".write": "!data.exists() && auth != null && newData.val() === auth.uid && auth.token.email === $name + '@sinterklaaslijstje.app' && $name.matches(/^(freek|kelly|kevin|annemiek|petra|martin)$/)"
+      }
+    },
+    "items": {
+      ".read": "auth != null && root.child('names').child(auth.token.email.replace('@sinterklaaslijstje.app', '')).val() === auth.uid",
+      "$owner": {
+        ".write": "auth != null && root.child('names').child($owner).val() === auth.uid",
+        "$item": {
+          ".validate": "newData.hasChildren(['name', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 120",
+          "photo": { ".validate": "newData.isString() && newData.val().length < 300000" }
+        }
+      }
+    },
+    "notes": {
+      "$owner": {
+        ".read": "auth != null && root.child('names').child(auth.token.email.replace('@sinterklaaslijstje.app', '')).val() === auth.uid && root.child('names').child($owner).val() !== auth.uid",
+        "$item": {
+          "$note": {
+            ".write": "auth != null && root.child('names').child(auth.token.email.replace('@sinterklaaslijstje.app', '')).val() === auth.uid && root.child('names').child($owner).val() !== auth.uid && (!data.exists() || data.child('author').val() === auth.token.email.replace('@sinterklaaslijstje.app', '')) && (!newData.exists() || newData.child('author').val() === auth.token.email.replace('@sinterklaaslijstje.app', ''))",
+            ".validate": "newData.hasChildren(['author', 'text', 'createdAt']) && newData.child('text').isString() && newData.child('text').val().length <= 400"
+          }
+        }
+      }
+    }
+  }
+}

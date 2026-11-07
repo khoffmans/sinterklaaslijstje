@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sint Verlanglijstjes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#f6efe6; --surface:#fffaf3; --sunk:#efe4d4; --fg:#2b1d14; --muted:#7a6656; --line:#e2d3bf;
+  --mijter:#b3261e; --mijter-ink:#fff6ee; --goud:#b8862b; --note:#fff1c9; --note-line:#e9cf7f;
+  --display:"Young Serif", Georgia, "Times New Roman", serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r:14px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#1b1410; --surface:#261c16; --sunk:#30241c; --fg:#f3e8dc; --muted:#b19c8a; --line:#3d2f25;
+  --mijter:#e0574b; --mijter-ink:#1b1410; --goud:#d9aa52; --note:#3a3020; --note-line:#6b5a32; color-scheme:dark}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:20px 48px}
+img{max-width:100%}
+[hidden]{display:none!important}
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(28px,7vw,40px)}
+h2{font-size:24px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--goud);outline-offset:2px}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.who{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);text-align:left;transition:transform .12s,border-color .12s}
+.who:hover{transform:translateY(-2px);border-color:var(--mijter)}
+.who .nm{font-family:var(--display);font-size:22px}
+.who small{color:var(--muted);font-size:13px}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;flex:none}
+
+.pin{font-size:28px;letter-spacing:.5em;text-align:center;font-variant-numeric:tabular-nums;max-width:220px}
+.err{color:var(--mijter);font-size:14px;font-weight:600;margin:0}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.me{display:flex;align-items:center;gap:10px}
+.link-btn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:14px}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.tab{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;display:flex;gap:8px;align-items:center}
+.tab[aria-selected="true"]{background:var(--mijter);border-color:var(--mijter);color:var(--mijter-ink)}
+.tab .cnt{font-variant-numeric:tabular-nums;opacity:.75;font-weight:500}
+
+.items{display:flex;flex-direction:column;gap:14px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.item-main{display:grid;grid-template-columns:96px 1fr;gap:14px;padding:14px}
+.thumb{width:96px;height:96px;border-radius:10px;background:var(--sunk);display:grid;place-items:center;color:var(--muted);font-family:var(--display);font-size:28px;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;background:#fff}
+.item-body{min-width:0;display:flex;flex-direction:column;gap:4px}
+.item-body h3{font-size:19px;overflow-wrap:anywhere}
+.item-body p{margin:0;color:var(--muted);overflow-wrap:anywhere;white-space:pre-wrap}
+.url{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--mijter);font-weight:600;text-decoration:none;overflow-wrap:anywhere}
+.url:hover{text-decoration:underline}
+.row-actions{display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.danger{color:var(--mijter)}
+
+.notes{border-top:1px dashed var(--line);background:var(--sunk);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.note{background:var(--note);border:1px solid var(--note-line);border-radius:10px;padding:8px 12px;font-size:15px}
+.note .by{font-size:12px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.note .txt{overflow-wrap:anywhere;white-space:pre-wrap}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font-size:13px}
+.chip:hover{border-color:var(--goud)}
+.note-form{display:flex;gap:8px}
+.note-form input{flex:1;min-width:0}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+input[type=text],input[type=url],input[type=password],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-weight:400}
+textarea{min-height:72px;resize:vertical}
+.photo-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.photo-drop{width:96px;height:96px;border:1.5px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:var(--bg);overflow:hidden;color:var(--muted);font-size:12px;text-align:center;padding:4px}
+.photo-drop img{width:100%;height:100%;object-fit:cover;background:#fff}
+.photo-help{flex:1;min-width:180px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;background:var(--mijter);color:var(--mijter-ink)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);font-weight:600}
+.btn:disabled{opacity:.6}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--r)}
+.banner{background:var(--note);border:1px solid var(--note-line);border-radius:var(--r);padding:12px 14px;font-size:14px}
+.secret{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:10}
+@media (max-width:420px){.item-main{grid-template-columns:72px 1fr}.thumb{width:72px;height:72px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Pakjesavond 5 december</div>
+    <h1>Sint Verlanglijstjes</h1>
+  </header>
+  <div id="view"><div class="empty">Lijstjes laden…</div></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+/* ===== Firebase-instellingen: plak hier de config uit de Firebase-console ===== */
+const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+/* ============================================================================ */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, onValue, set, push, remove, get, off }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const PEOPLE = ["Freek","Kelly","Kevin","Annemiek","Petra","Martin"];
+const KEY = n => n.toLowerCase();
+const DOMAIN = "@sinterklaaslijstje.app";          // moet gelijk zijn aan database.rules.json
+const pinToPassword = (name,pin) => `sint-${KEY(name)}-${pin}`; // Firebase wil minimaal 6 tekens
+const COLORS = {Freek:"#3f6e9c",Kelly:"#a2477a",Kevin:"#b3261e",Annemiek:"#2f7a4a",Petra:"#8a5a1e",Martin:"#5b4a9e"};
+const QUICK = ["Heb ik gekocht 🎁","Prijs is best duur","Wil iemand samen geven?","Heeft dit al"];
+
+const S = { ready:false, names:{}, me:null, uid:null, tab:null, items:{}, notes:{}, editing:null, draftPhoto:null,
+  login:null /* {name, mode:'pin'|'new'} */, loginErr:"", busy:false, clearForm:false };
+const $ = s => document.querySelector(s);
+
+function h(tag, attrs={}, ...kids){
+  const el=document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (v==null||v===false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2),v);
+    else if (k==="class") el.className=v;
+    else el.setAttribute(k, v===true?"":v);
+  }
+  for (const c of kids.flat()){ if(c==null||c===false) continue; el.append(c.nodeType?c:document.createTextNode(String(c))); }
+  return el;
+}
+const avatar = n => { const a=h("div",{class:"av"},n[0]); a.style.background=COLORS[n]; return a; };
+function toast(m){ const t=$("#toast"); t.textContent=m; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,2600); }
+function when(ts){ if(!ts) return ""; const d=new Date(ts), n=new Date();
+  if (d.toDateString()===n.toDateString()) return "vandaag "+d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  return d.toLocaleDateString("nl-NL",{day:"numeric",month:"short"}); }
+function safeUrl(u){ try{ const x=new URL(u.trim()); return /^https?:$/.test(x.protocol)?x.href:null }catch{ return null } }
+function host(u){ try{ return new URL(u).hostname.replace(/^www\./,"") }catch{ return u } }
+
+/* ---------- foto's ---------- */
+function shrink(file){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej;
+    r.onload=()=>{ const img=new Image(); img.onerror=rej; img.onload=()=>{
+      const max=520, sc=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement("canvas"); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+      const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+      res(c.toDataURL("image/jpeg",.72)); }; img.src=r.result; };
+    r.readAsDataURL(file); });
+}
+async function previewFromLink(url){
+  // Microlink leest de productfoto (og:image) van de webshop. Gratis tot ±50 opvragingen per dag.
+  const r = await fetch("https://api.microlink.io/?url="+encodeURIComponent(url));
+  const j = await r.json();
+  return { image: j?.data?.image?.url || j?.data?.logo?.url || null, title: j?.data?.title || null };
+}
+
+/* ---------- render ---------- */
+let lastKey=null;
+function render(){
+  const v=$("#view");
+  const key=[S.me,S.tab,S.editing,S.login?.name,S.login?.mode].join("|");
+  const keep = key===lastKey && !S.clearForm ? [...v.querySelectorAll("input[id]:not([type=file]),textarea[id]")].map(el=>[el.id,el.value]) : [];
+  const focusId=document.activeElement?.id;
+  S.clearForm=false; lastKey=key;
+  v.replaceChildren();
+  if (!firebaseConfig.apiKey){ v.append(h("div",{class:"banner"},"Firebase is nog niet ingesteld. Plak de firebaseConfig bovenin index.html.")); return; }
+  if (!S.ready) v.append(h("div",{class:"empty"},"Lijstjes laden…"));
+  else if (!S.me) S.login ? renderLogin(v) : renderPicker(v);
+  else renderMain(v);
+  for (const [id,val] of keep){ const el=document.getElementById(id); if(el) el.value=val; }
+  if (focusId){ const el=document.getElementById(focusId); if(el && el.tagName!=="BUTTON") el.focus(); }
+}
+
+function renderPicker(v){
+  v.append(h("div",{class:"panel"},
+    h("h2",{},"Wie ben jij?"),
+    h("p",{class:"muted",style:"margin:0"},"Kies je naam. De eerste keer kies je zelf een pincode van 4 cijfers."),
+    h("div",{class:"picker"}, PEOPLE.map(n=>h("button",{class:"who",onclick:()=>{S.login={name:n,mode:S.names[KEY(n)]?"pin":"new"};S.loginErr="";render();}},
+      avatar(n), h("span",{class:"nm"},n), h("small",{}, S.names[KEY(n)]?"Inloggen met pincode":"Nog geen pincode")))) ));
+}
+
+function renderLogin(v){
+  const {name,mode}=S.login;
+  const pinInput=(id,label)=>h("label",{},label,h("input",{type:"password",id,class:"pin",inputmode:"numeric",pattern:"[0-9]{4}",maxlength:"4",autocomplete:mode==="new"?"new-password":"current-password",required:true}));
+  v.append(h("form",{class:"panel",onsubmit:doLogin},
+    h("div",{class:"me"},avatar(name),h("h2",{},mode==="new"?`Hoi ${name}, kies een pincode`:`Hoi ${name}`)),
+    mode==="new" ? h("p",{class:"muted",style:"margin:0"},"Onthoud hem goed: hiermee log je straks op elk apparaat in.") : null,
+    pinInput("pin1", mode==="new"?"Pincode (4 cijfers)":"Je pincode"),
+    mode==="new" ? pinInput("pin2","Herhaal pincode") : null,
+    S.loginErr ? h("p",{class:"err"},S.loginErr) : null,
+    h("div",{class:"actions"},
+      h("button",{type:"button",class:"btn ghost",onclick:()=>{S.login=null;render();}},"Terug"),
+      h("button",{type:"submit",class:"btn",disabled:S.busy}, S.busy?"Bezig…":mode==="new"?"Pincode opslaan":"Inloggen"))));
+  queueMicrotask(()=>$("#pin1")?.focus());
+}
+
+async function doLogin(e){
+  e.preventDefault();
+  const {name,mode}=S.login; const p1=$("#pin1").value.trim(), p2=$("#pin2")?.value.trim();
+  if (!/^\d{4}$/.test(p1)){ S.loginErr="Een pincode is precies 4 cijfers."; return render(); }
+  if (mode==="new" && p1!==p2){ S.loginErr="De twee pincodes zijn niet gelijk."; return render(); }
+  S.busy=true; S.loginErr=""; render();
+  const email=KEY(name)+DOMAIN, pw=pinToPassword(name,p1);
+  try{
+    let cred;
+    if (mode==="new"){
+      try{ cred=await createUserWithEmailAndPassword(auth,email,pw); }
+      catch(err){ if(err.code==="auth/email-already-in-use") cred=await signInWithEmailAndPassword(auth,email,pw); else throw err; }
+      await set(ref(db,"names/"+KEY(name)), cred.user.uid);
+    } else {
+      await signInWithEmailAndPassword(auth,email,pw);
+    }
+    S.login=null;
+  }catch(err){
+    const c=err.code||"";
+    S.loginErr = c.includes("wrong-password")||c.includes("invalid-credential")||c.includes("invalid-login") ? "Die pincode klopt niet."
+      : c.includes("too-many-requests") ? "Te vaak geprobeerd. Wacht een paar minuten."
+      : c.includes("PERMISSION_DENIED")||String(err).includes("permission") ? `${name} is al door iemand anders gekoppeld.`
+      : "Inloggen lukte niet. Controleer je internet en probeer opnieuw.";
+    if (mode==="new" && auth.currentUser && !S.names[KEY(name)]) await signOut(auth).catch(()=>{});
+  }
+  S.busy=false; render();
+}
+
+function renderMain(v){
+  const itemsOf=n=>Object.entries(S.items[KEY(n)]||{}).map(([id,x])=>({id,owner:n,...x})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  v.append(
+    h("div",{class:"top"},
+      h("div",{class:"me"},avatar(S.me),h("div",{},h("div",{class:"eyebrow"},"Ingelogd als"),h("strong",{},S.me))),
+      h("button",{class:"link-btn",onclick:()=>signOut(auth)},"Uitloggen")),
+    h("div",{class:"tabs",role:"tablist"}, PEOPLE.map(n=>h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===n),
+      onclick:()=>{S.tab=n;S.editing=null;S.draftPhoto=null;render();}}, n===S.me?"Mijn lijstje":n, h("span",{class:"cnt"},itemsOf(n).length)))));
+  if (S.tab===S.me) renderMine(v,itemsOf(S.me)); else renderTheirs(v,S.tab,itemsOf(S.tab));
+}
+
+function itemCard(it,extra){
+  const u=it.link&&safeUrl(it.link);
+  const img = it.photo ? h("img",{src:it.photo,alt:"",loading:"lazy",referrerpolicy:"no-referrer"}) : null;
+  if (img) img.addEventListener("error",()=>img.replaceWith(it.name[0]?.toUpperCase()||"?"));
+  return h("article",{class:"item"},
+    h("div",{class:"item-main"},
+      h("div",{class:"thumb"}, img || (it.name[0]?.toUpperCase()||"?")),
+      h("div",{class:"item-body"}, h("h3",{},it.name), it.desc?h("p",{},it.desc):null,
+        u?h("a",{class:"url",href:u,target:"_blank",rel:"noopener"},"↗ "+host(u)):null, extra?.actions||null)),
+    extra?.below||null);
+}
+
+function renderMine(v,mine){
+  const s=h("div",{class:"stack"});
+  s.append(h("div",{class:"secret"},"🤫 Notities die anderen bij jouw wensen zetten, kun jij niet zien."));
+  s.append(form(S.editing?mine.find(i=>i.id===S.editing):null));
+  const list=h("div",{class:"items"});
+  if (!mine.length) list.append(h("div",{class:"empty"},"Je lijstje is nog leeg. Voeg hierboven je eerste wens toe."));
+  for (const it of mine) list.append(itemCard(it,{actions:h("div",{class:"row-actions"},
+    h("button",{class:"link-btn",onclick:()=>{S.editing=it.id;S.draftPhoto=it.photo||null;render();scrollTo({top:0,behavior:"smooth"});}},"Bewerken"),
+    h("button",{class:"link-btn danger",onclick:e=>confirmDelete(e.currentTarget,it)},"Verwijderen"))}));
+  s.append(list); v.append(s);
+}
+function confirmDelete(btn,it){
+  btn.parentElement.replaceChildren(h("span",{class:"muted",style:"font-size:14px"},"Zeker weten?"),
+    h("button",{class:"link-btn danger",onclick:()=>remove(ref(db,`items/${KEY(S.me)}/${it.id}`)).then(()=>toast("Verwijderd"),fail)},"Ja, verwijder"),
+    h("button",{class:"link-btn",onclick:render},"Nee"));
+}
+
+function form(it){
+  const f=h("form",{class:"panel",onsubmit:e=>save(e,it)},
+    h("h2",{},it?"Wens bewerken":"Nieuwe wens"),
+    h("label",{},"Naam",h("input",{type:"text",id:"f-name",required:true,maxlength:"120",placeholder:"Bijv. Wollen sjaal, donkergroen"})),
+    h("label",{},"Beschrijving",h("textarea",{id:"f-desc",maxlength:"1000",placeholder:"Maat, kleur, waarom je het wil…"})),
+    h("label",{},"Link",h("input",{type:"url",id:"f-link",placeholder:"https://…",inputmode:"url",onchange:e=>autoPhoto(e.target.value)})),
+    h("div",{class:"photo-row"},
+      h("div",{class:"photo-drop",id:"f-prev"}, S.draftPhoto?h("img",{src:S.draftPhoto,alt:"Voorbeeld",referrerpolicy:"no-referrer"}):"Geen foto"),
+      h("div",{class:"photo-help"},
+        h("span",{id:"f-photo-status"},"Plak een link en de foto wordt automatisch opgehaald. Lukt dat niet, kies dan zelf een foto of plak een afbeelding (Ctrl/⌘+V)."),
+        h("div",{style:"display:flex;gap:8px;flex-wrap:wrap"},
+          h("label",{class:"btn ghost",style:"flex-direction:row;cursor:pointer"},"Foto kiezen",
+            h("input",{type:"file",id:"f-file",accept:"image/*",hidden:true,onchange:async e=>{const fl=e.target.files[0]; if(fl) setPhoto(await shrink(fl));}})),
+          S.draftPhoto?h("button",{type:"button",class:"btn ghost",onclick:()=>setPhoto(null)},"Foto weghalen"):null))),
+    h("div",{class:"actions"},
+      it?h("button",{type:"button",class:"btn ghost",onclick:()=>{S.editing=null;S.draftPhoto=null;S.clearForm=true;render();}},"Annuleren"):null,
+      h("button",{class:"btn",type:"submit",id:"f-save"},it?"Opslaan":"Toevoegen aan mijn lijstje")));
+  if (it){ f.querySelector("#f-name").value=it.name||""; f.querySelector("#f-desc").value=it.desc||""; f.querySelector("#f-link").value=it.link||""; }
+  return f;
+}
+function setPhoto(p){ S.draftPhoto=p; render(); }
+async function autoPhoto(raw){
+  let link=raw.trim(); if(!link) return; if(!/^https?:\/\//i.test(link)) link="https://"+link;
+  if (!safeUrl(link)) return;
+  const st=$("#f-photo-status"); if(st) st.textContent="Foto ophalen…";
+  try{
+    const {image,title}=await previewFromLink(link);
+    if (image){ if(!S.draftPhoto || S.draftPhoto.startsWith("http")) setPhoto(image); }
+    else if ($("#f-photo-status")) $("#f-photo-status").textContent="Geen foto gevonden op die pagina. Kies er zelf een.";
+    const nm=$("#f-name"); if (title && nm && !nm.value) nm.value=title.slice(0,120);
+  }catch{ const s=$("#f-photo-status"); if(s) s.textContent="Foto ophalen lukte niet. Kies er zelf een of plak een afbeelding."; }
+}
+document.addEventListener("paste",async e=>{
+  if (!S.me||S.tab!==S.me||!$("#f-prev")) return;
+  const file=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith("image/"))?.getAsFile();
+  if (file){ e.preventDefault(); setPhoto(await shrink(file)); toast("Foto geplakt"); }
+});
+async function save(e,it){
+  e.preventDefault();
+  const name=$("#f-name").value.trim(); if(!name) return;
+  let link=$("#f-link").value.trim(); if(link && !/^https?:\/\//i.test(link)) link="https://"+link;
+  if (link && !safeUrl(link)){ toast("Die link klopt niet"); return; }
+  const body={name,desc:$("#f-desc").value.trim(),link,photo:S.draftPhoto||"",createdAt:it?.createdAt||Date.now(),updatedAt:Date.now()};
+  $("#f-save").disabled=true;
+  try{
+    if (it) await set(ref(db,`items/${KEY(S.me)}/${it.id}`),body);
+    else await set(push(ref(db,`items/${KEY(S.me)}`)),body);
+    S.editing=null; S.draftPhoto=null; S.clearForm=true; toast(it?"Opgeslagen":"Toegevoegd"); render();
+  }catch(err){ fail(err); const b=$("#f-save"); if(b) b.disabled=false; }
+}
+
+function renderTheirs(v,who,theirs){
+  const s=h("div",{class:"stack"});
+  s.append(h("div",{class:"secret"},`✍️ ${who} kan de notities op dit lijstje niet zien.`));
+  const list=h("div",{class:"items"});
+  if (!theirs.length) list.append(h("div",{class:"empty"},`${who} heeft nog niets op het lijstje gezet.`));
+  const allNotes=S.notes[KEY(who)]||{};
+  for (const it of theirs){
+    const notes=Object.entries(allNotes[it.id]||{}).map(([id,n])=>({id,...n})).sort((a,b)=>a.createdAt-b.createdAt);
+    const input=h("input",{type:"text",id:"note-"+it.id,maxlength:"400",placeholder:"Notitie voor de anderen…"});
+    const below=h("div",{class:"notes"},
+      notes.map(n=>h("div",{class:"note"},
+        h("div",{class:"by"},h("span",{},PEOPLE.find(p=>KEY(p)===n.author)||n.author),
+          h("span",{style:"display:flex;gap:8px"},when(n.createdAt),
+            n.author===KEY(S.me)?h("button",{class:"link-btn",style:"font-size:12px",onclick:()=>remove(ref(db,`notes/${KEY(who)}/${it.id}/${n.id}`)).catch(fail)},"wis"):null)),
+        h("div",{class:"txt"},n.text))),
+      h("div",{class:"quick"},QUICK.map(q=>h("button",{class:"chip",type:"button",onclick:()=>addNote(who,it,q)},q))),
+      h("form",{class:"note-form",onsubmit:e=>{e.preventDefault();const t=input.value.trim(); if(t){addNote(who,it,t); input.value="";}}},
+        input,h("button",{class:"btn",type:"submit"},"Plaats")));
+    list.append(itemCard(it,{below}));
+  }
+  s.append(list); v.append(s);
+}
+function addNote(who,it,text){
+  set(push(ref(db,`notes/${KEY(who)}/${it.id}`)),{author:KEY(S.me),text,createdAt:Date.now()}).catch(fail);
+}
+function fail(e){ console.error(e); toast(String(e).includes("permission")?"Dat mag niet met dit account.":"Opslaan lukte niet. Probeer het zo nog eens."); }
+
+/* ---------- opstarten ---------- */
+let app, auth, db;
+const subs=[];
+function listenData(){
+  subs.forEach(u=>u()); subs.length=0;
+  subs.push(onValue(ref(db,"items"),s=>{S.items=s.val()||{}; render();},fail));
+  for (const p of PEOPLE){
+    if (p===S.me) continue;                     // eigen notities: database geeft ze toch niet, dus ook niet vragen
+    subs.push(onValue(ref(db,"notes/"+KEY(p)),s=>{S.notes[KEY(p)]=s.val()||{}; render();},fail));
+  }
+}
+render();
+if (firebaseConfig.apiKey){
+  app=initializeApp(firebaseConfig); auth=getAuth(app); db=getDatabase(app);
+  setPersistence(auth,browserLocalPersistence).catch(()=>{});
+  onValue(ref(db,"names"),s=>{ S.names=s.val()||{}; S.ready=true; resolveMe(); render(); },()=>{S.ready=true;render();});
+  onAuthStateChanged(auth,u=>{ S.uid=u?.uid||null; if(!u){ subs.forEach(x=>x()); subs.length=0; S.me=null; S.items={}; S.notes={}; } resolveMe(); render(); });
+}
+function resolveMe(){
+  const n = S.uid ? PEOPLE.find(p=>S.names[KEY(p)]===S.uid) : null;
+  if (n && n!==S.me){ S.me=n; S.tab=n; listenData(); }
+}
+</script>
+</body>
+</html>
