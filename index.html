@@ -35,7 +35,8 @@ button{cursor:pointer}
 
 .picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
 .who{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);text-align:left;transition:transform .12s,border-color .12s}
-.who:hover{transform:translateY(-2px);border-color:var(--mijter)}
+.who:hover:not(:disabled){transform:translateY(-2px);border-color:var(--mijter)}
+.who:disabled{opacity:.5;cursor:not-allowed}
 .who .nm{font-family:var(--display);font-size:22px}
 .who small{color:var(--muted);font-size:13px}
 .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;flex:none}
@@ -103,6 +104,7 @@ textarea{min-height:72px;resize:vertical}
   <div id="view"><div class="empty">Lijstjes laden…</div></div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="recaptcha"></div>
 
 <script type="module">
 /* ===== Firebase-instellingen: plak hier de config uit de Firebase-console ===== */
@@ -118,20 +120,18 @@ const firebaseConfig = {
 /* ============================================================================ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence }
+import { getAuth, onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber, signOut, setPersistence, browserLocalPersistence }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, onValue, set, push, remove, get, off }
+import { getDatabase, ref, onValue, set, push, remove, get, update }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const PEOPLE = ["Freek","Kelly","Kevin","Annemiek","Petra","Martin"];
 const KEY = n => n.toLowerCase();
-const DOMAIN = "@sinterklaaslijstje.app";          // moet gelijk zijn aan database.rules.json
-const pinToPassword = (name,pin) => `sint-${KEY(name)}-${pin}`; // Firebase wil minimaal 6 tekens
 const COLORS = {Freek:"#3f6e9c",Kelly:"#a2477a",Kevin:"#b3261e",Annemiek:"#2f7a4a",Petra:"#8a5a1e",Martin:"#5b4a9e"};
 const QUICK = ["Heb ik gekocht 🎁","Prijs is best duur","Wil iemand samen geven?","Heeft dit al"];
 
 const S = { ready:false, names:{}, me:null, uid:null, tab:null, items:{}, notes:{}, editing:null, draftPhoto:null,
-  login:null /* {name, mode:'pin'|'new'} */, loginErr:"", busy:false, clearForm:false };
+  login:null /* {name, step:'phone'|'code', phone} */, loginErr:"", busy:false, clearForm:false };
 const $ = s => document.querySelector(s);
 
 function h(tag, attrs={}, ...kids){
@@ -174,7 +174,7 @@ async function previewFromLink(url){
 let lastKey=null;
 function render(){
   const v=$("#view");
-  const key=[S.me,S.tab,S.editing,S.login?.name,S.login?.mode].join("|");
+  const key=[S.me,S.tab,S.editing,S.uid,S.login?.name,S.login?.step].join("|");
   const keep = key===lastKey && !S.clearForm ? [...v.querySelectorAll("input[id]:not([type=file]),textarea[id]")].map(el=>[el.id,el.value]) : [];
   const focusId=document.activeElement?.id;
   S.clearForm=false; lastKey=key;
@@ -188,54 +188,93 @@ function render(){
 }
 
 function renderPicker(v){
+  const linking = !!S.uid;   // ingelogd met sms, maar nog geen naam gekoppeld
   v.append(h("div",{class:"panel"},
-    h("h2",{},"Wie ben jij?"),
-    h("p",{class:"muted",style:"margin:0"},"Kies je naam. De eerste keer kies je zelf een pincode van 4 cijfers."),
-    h("div",{class:"picker"}, PEOPLE.map(n=>h("button",{class:"who",onclick:()=>{S.login={name:n,mode:S.names[KEY(n)]?"pin":"new"};S.loginErr="";render();}},
-      avatar(n), h("span",{class:"nm"},n), h("small",{}, S.names[KEY(n)]?"Inloggen met pincode":"Nog geen pincode")))) ));
+    h("h2",{},linking?"Welke naam hoort bij jouw nummer?":"Wie ben jij?"),
+    h("p",{class:"muted",style:"margin:0"}, linking
+      ? "Je bent ingelogd. Kies nog één keer je naam; die wordt aan je telefoonnummer gekoppeld."
+      : "Kies je naam. Je krijgt daarna een sms-code om in te loggen. Daarna blijf je op dit apparaat ingelogd."),
+    S.loginErr && !S.login ? h("p",{class:"err"},S.loginErr) : null,
+    h("div",{class:"picker"}, PEOPLE.map(n=>{
+      const taken=!!S.names[KEY(n)];
+      return h("button",{class:"who",disabled:linking&&taken,onclick:()=>linking?claim(n):(S.login={name:n,step:"phone"},S.loginErr="",render())},
+        avatar(n), h("span",{class:"nm"},n), h("small",{}, taken?"Inloggen met sms":"Nog niet gekoppeld"));
+    })),
+    linking ? h("button",{class:"link-btn",style:"align-self:flex-start",onclick:()=>signOut(auth)},"Ander nummer gebruiken") : null));
+}
+
+function normalizePhone(raw){
+  let p=raw.replace(/[\s\-().]/g,"");
+  if (p.startsWith("00")) p="+"+p.slice(2);
+  if (p.startsWith("06")) p="+31"+p.slice(1);
+  return /^\+\d{8,15}$/.test(p)?p:null;
 }
 
 function renderLogin(v){
-  const {name,mode}=S.login;
-  const pinInput=(id,label)=>h("label",{},label,h("input",{type:"password",id,class:"pin",inputmode:"numeric",pattern:"[0-9]{4}",maxlength:"4",autocomplete:mode==="new"?"new-password":"current-password",required:true}));
-  v.append(h("form",{class:"panel",onsubmit:doLogin},
-    h("div",{class:"me"},avatar(name),h("h2",{},mode==="new"?`Hoi ${name}, kies een pincode`:`Hoi ${name}`)),
-    mode==="new" ? h("p",{class:"muted",style:"margin:0"},"Onthoud hem goed: hiermee log je straks op elk apparaat in.") : null,
-    pinInput("pin1", mode==="new"?"Pincode (4 cijfers)":"Je pincode"),
-    mode==="new" ? pinInput("pin2","Herhaal pincode") : null,
+  const {name,step,phone}=S.login;
+  const f=h("form",{class:"panel",onsubmit:step==="phone"?sendCode:checkCode},
+    h("div",{class:"me"},avatar(name),h("h2",{},`Hoi ${name}`)),
+    step==="phone"
+      ? h("label",{},"Je mobiele nummer",h("input",{type:"tel",id:"phone",autocomplete:"tel",inputmode:"tel",placeholder:"06 12345678",required:true}))
+      : [h("p",{class:"muted",style:"margin:0"},`We hebben een code gestuurd naar ${phone}.`),
+         h("label",{},"Code uit de sms",h("input",{type:"text",id:"code",class:"pin",inputmode:"numeric",autocomplete:"one-time-code",maxlength:"6",pattern:"[0-9]{6}",required:true}))],
     S.loginErr ? h("p",{class:"err"},S.loginErr) : null,
     h("div",{class:"actions"},
-      h("button",{type:"button",class:"btn ghost",onclick:()=>{S.login=null;render();}},"Terug"),
-      h("button",{type:"submit",class:"btn",disabled:S.busy}, S.busy?"Bezig…":mode==="new"?"Pincode opslaan":"Inloggen"))));
-  queueMicrotask(()=>$("#pin1")?.focus());
+      h("button",{type:"button",class:"btn ghost",onclick:()=>{S.login=step==="code"?{name,step:"phone"}:null;S.loginErr="";render();}},"Terug"),
+      h("button",{type:"submit",class:"btn",id:"login-btn",disabled:S.busy}, S.busy?"Bezig…":step==="phone"?"Stuur sms-code":"Inloggen")));
+  v.append(f);
+  queueMicrotask(()=>$(step==="phone"?"#phone":"#code")?.focus());
 }
 
-async function doLogin(e){
+let verifier=null, confirmation=null;
+async function sendCode(e){
   e.preventDefault();
-  const {name,mode}=S.login; const p1=$("#pin1").value.trim(), p2=$("#pin2")?.value.trim();
-  if (!/^\d{4}$/.test(p1)){ S.loginErr="Een pincode is precies 4 cijfers."; return render(); }
-  if (mode==="new" && p1!==p2){ S.loginErr="De twee pincodes zijn niet gelijk."; return render(); }
+  const phone=normalizePhone($("#phone").value);
+  if (!phone){ S.loginErr="Vul een geldig mobiel nummer in, bijvoorbeeld 06 12345678."; return render(); }
   S.busy=true; S.loginErr=""; render();
-  const email=KEY(name)+DOMAIN, pw=pinToPassword(name,p1);
   try{
-    let cred;
-    if (mode==="new"){
-      try{ cred=await createUserWithEmailAndPassword(auth,email,pw); }
-      catch(err){ if(err.code==="auth/email-already-in-use") cred=await signInWithEmailAndPassword(auth,email,pw); else throw err; }
-      await set(ref(db,"names/"+KEY(name)), cred.user.uid);
-    } else {
-      await signInWithEmailAndPassword(auth,email,pw);
-    }
-    S.login=null;
+    if (!verifier) verifier=new RecaptchaVerifier(auth,"recaptcha",{size:"invisible"});
+    confirmation=await signInWithPhoneNumber(auth,phone,verifier);
+    S.login={...S.login,step:"code",phone};
   }catch(err){
+    console.error(err);
     const c=err.code||"";
-    S.loginErr = c.includes("wrong-password")||c.includes("invalid-credential")||c.includes("invalid-login") ? "Die pincode klopt niet."
-      : c.includes("too-many-requests") ? "Te vaak geprobeerd. Wacht een paar minuten."
-      : c.includes("PERMISSION_DENIED")||String(err).includes("permission") ? `${name} is al door iemand anders gekoppeld.`
-      : "Inloggen lukte niet. Controleer je internet en probeer opnieuw.";
-    if (mode==="new" && auth.currentUser && !S.names[KEY(name)]) await signOut(auth).catch(()=>{});
+    S.loginErr = c.includes("invalid-phone") ? "Dat telefoonnummer klopt niet."
+      : c.includes("too-many-requests")||c.includes("quota") ? "Te veel sms'jes verstuurd. Probeer het later opnieuw."
+      : c.includes("operation-not-allowed")||c.includes("billing") ? "Inloggen via sms staat nog niet aan in Firebase."
+      : "De sms kon niet verstuurd worden. Probeer het opnieuw.";
+    try{ verifier?.clear(); }catch{} verifier=null;
   }
   S.busy=false; render();
+}
+async function checkCode(e){
+  e.preventDefault();
+  const code=$("#code").value.trim();
+  if (!/^\d{6}$/.test(code)){ S.loginErr="De code bestaat uit 6 cijfers."; return render(); }
+  S.busy=true; S.loginErr=""; render();
+  try{
+    const cred=await confirmation.confirm(code);
+    const uid=cred.user.uid;
+    const existing=(await get(ref(db,"members/"+uid))).val();
+    if (!existing) await claim(S.login.name,uid);
+    S.login=null;
+  }catch(err){
+    console.error(err);
+    S.loginErr = (err.code||"").includes("invalid-verification-code") ? "Die code klopt niet." : "Inloggen lukte niet. Probeer het opnieuw.";
+  }
+  S.busy=false; render();
+}
+async function claim(name,uid=S.uid){
+  const k=KEY(name);
+  try{
+    await update(ref(db),{["names/"+k]:uid,["members/"+uid]:k});
+    S.loginErr="";
+  }catch(err){
+    console.error(err);
+    S.loginErr=`${name} is al aan een ander telefoonnummer gekoppeld.`;
+    S.login=null;
+  }
+  render();
 }
 
 function renderMain(v){
@@ -357,7 +396,7 @@ function addNote(who,it,text){
 function fail(e){ console.error(e); toast(String(e).includes("permission")?"Dat mag niet met dit account.":"Opslaan lukte niet. Probeer het zo nog eens."); }
 
 /* ---------- opstarten ---------- */
-let app, auth, db;
+let app, auth, db, meSub=null;
 const subs=[];
 function listenData(){
   subs.forEach(u=>u()); subs.length=0;
@@ -372,11 +411,15 @@ if (firebaseConfig.apiKey){
   app=initializeApp(firebaseConfig); auth=getAuth(app); db=getDatabase(app);
   setPersistence(auth,browserLocalPersistence).catch(()=>{});
   onValue(ref(db,"names"),s=>{ S.names=s.val()||{}; S.ready=true; resolveMe(); render(); },()=>{S.ready=true;render();});
-  onAuthStateChanged(auth,u=>{ S.uid=u?.uid||null; if(!u){ subs.forEach(x=>x()); subs.length=0; S.me=null; S.items={}; S.notes={}; } resolveMe(); render(); });
+  onAuthStateChanged(auth,u=>{
+    S.uid=u?.uid||null; meSub?.(); meSub=null;
+    if(!u){ subs.forEach(x=>x()); subs.length=0; S.me=null; S.memberKey=null; S.items={}; S.notes={}; render(); return; }
+    meSub=onValue(ref(db,"members/"+u.uid),s=>{ S.memberKey=s.val(); resolveMe(); render(); });
+  });
 }
 function resolveMe(){
-  const n = S.uid ? PEOPLE.find(p=>S.names[KEY(p)]===S.uid) : null;
-  if (n && n!==S.me){ S.me=n; S.tab=n; listenData(); }
+  const n = S.memberKey ? PEOPLE.find(p=>KEY(p)===S.memberKey) : null;
+  if (n && n!==S.me){ S.me=n; S.tab=n; S.login=null; listenData(); }
 }
 </script>
 </body>
