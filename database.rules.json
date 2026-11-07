@@ -1,21 +1,9 @@
 {
   "rules": {
-    "names": {
-      ".read": true,
-      "$name": {
-        ".write": "auth != null && !data.exists() && newData.val() === auth.uid && $name.matches(/^(freek|kelly|kevin|annemiek|petra|martin)$/) && newData.parent().parent().child('members').child(auth.uid).val() === $name"
-      }
-    },
-    "members": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.isString() && newData.parent().parent().child('names').child(newData.val()).val() === auth.uid"
-      }
-    },
     "items": {
-      ".read": "auth != null && root.child('members').child(auth.uid).exists()",
+      ".read": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/)",
       "$owner": {
-        ".write": "auth != null && root.child('members').child(auth.uid).val() === $owner",
+        ".write": "auth != null && auth.token.email === $owner + '@sinterklaaslijstje.app' && $owner.matches(/^(freek|kelly|kevin|annemiek|petra|martin)$/)",
         "$item": {
           ".validate": "newData.hasChildren(['name', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 120",
           "photo": { ".validate": "newData.isString() && newData.val().length < 300000" }
@@ -24,10 +12,10 @@
     },
     "notes": {
       "$owner": {
-        ".read": "auth != null && root.child('members').child(auth.uid).exists() && root.child('members').child(auth.uid).val() !== $owner",
+        ".read": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/) && auth.token.email !== $owner + '@sinterklaaslijstje.app'",
         "$item": {
           "$note": {
-            ".write": "auth != null && root.child('members').child(auth.uid).exists() && root.child('members').child(auth.uid).val() !== $owner && (!data.exists() || data.child('author').val() === root.child('members').child(auth.uid).val()) && (!newData.exists() || newData.child('author').val() === root.child('members').child(auth.uid).val())",
+            ".write": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/) && auth.token.email !== $owner + '@sinterklaaslijstje.app' && (!data.exists() || data.child('author').val() + '@sinterklaaslijstje.app' === auth.token.email) && (!newData.exists() || newData.child('author').val() + '@sinterklaaslijstje.app' === auth.token.email)",
             ".validate": "newData.hasChildren(['author', 'text', 'createdAt']) && newData.child('text').isString() && newData.child('text').val().length <= 400"
           }
         }
