@@ -6,7 +6,9 @@
         ".write": "auth != null && auth.token.email === $owner + '@sinterklaaslijstje.app' && $owner.matches(/^(freek|kelly|kevin|annemiek|petra|martin)$/)",
         "$item": {
           ".validate": "newData.hasChildren(['name', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 120",
-          "photo": { ".validate": "newData.isString() && newData.val().length < 300000" }
+          "photo": {
+            ".validate": "newData.isString() && newData.val().length < 300000"
+          }
         }
       }
     },
@@ -18,6 +20,15 @@
             ".write": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/) && auth.token.email !== $owner + '@sinterklaaslijstje.app' && (!data.exists() || data.child('author').val() + '@sinterklaaslijstje.app' === auth.token.email) && (!newData.exists() || newData.child('author').val() + '@sinterklaaslijstje.app' === auth.token.email)",
             ".validate": "newData.hasChildren(['author', 'text', 'createdAt']) && newData.child('text').isString() && newData.child('text').val().length <= 400"
           }
+        }
+      }
+    },
+    "bought": {
+      "$owner": {
+        ".read": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/) && auth.token.email !== $owner + '@sinterklaaslijstje.app'",
+        "$item": {
+          ".write": "auth != null && auth.token.email.matches(/^(freek|kelly|kevin|annemiek|petra|martin)@sinterklaaslijstje\\.app$/) && auth.token.email !== $owner + '@sinterklaaslijstje.app' && (!data.exists() || data.child('by').val() + '@sinterklaaslijstje.app' === auth.token.email) && (!newData.exists() || newData.child('by').val() + '@sinterklaaslijstje.app' === auth.token.email)",
+          ".validate": "newData.hasChildren(['by', 'at'])"
         }
       }
     }

@@ -53,7 +53,12 @@ button{cursor:pointer}
 .tab .cnt{font-variant-numeric:tabular-nums;opacity:.75;font-weight:500}
 
 .items{display:flex;flex-direction:column;gap:14px}
-.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;transition:opacity .2s}
+.item.bought{opacity:.55;filter:grayscale(.8)}
+.item.bought h3{text-decoration:line-through;text-decoration-thickness:1px}
+.bought-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);font-size:15px;font-weight:600;cursor:pointer}
+.bought-row input{width:20px;height:20px;accent-color:var(--mijter);margin:0;cursor:pointer}
+.bought-row .muted{font-weight:400;font-size:13px}
 .item-main{display:grid;grid-template-columns:96px 1fr;gap:14px;padding:14px}
 .thumb{width:96px;height:96px;border-radius:10px;background:var(--sunk);display:grid;place-items:center;color:var(--muted);font-family:var(--display);font-size:28px;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:cover;background:#fff}
@@ -128,9 +133,9 @@ const PEOPLE = ["Freek","Kelly","Kevin","Annemiek","Petra","Martin"];
 const KEY = n => n.toLowerCase();
 const DOMAIN = "@sinterklaaslijstje.app";   // moet gelijk zijn aan database.rules.json
 const COLORS = {Freek:"#3f6e9c",Kelly:"#a2477a",Kevin:"#b3261e",Annemiek:"#2f7a4a",Petra:"#8a5a1e",Martin:"#5b4a9e"};
-const QUICK = ["Heb ik gekocht 🎁","Prijs is best duur","Wil iemand samen geven?","Heeft dit al"];
+const QUICK = ["Wil iemand samen geven?","Heeft dit al"];
 
-const S = { ready:false, names:{}, me:null, uid:null, tab:null, items:{}, notes:{}, editing:null, draftPhoto:null,
+const S = { ready:false, names:{}, me:null, uid:null, tab:null, items:{}, notes:{}, bought:{}, editing:null, draftPhoto:null,
   login:null /* {name} */, loginErr:"", busy:false, clearForm:false };
 const $ = s => document.querySelector(s);
 
@@ -330,10 +335,19 @@ function renderTheirs(v,who,theirs){
   const list=h("div",{class:"items"});
   if (!theirs.length) list.append(h("div",{class:"empty"},`${who} heeft nog niets op het lijstje gezet.`));
   const allNotes=S.notes[KEY(who)]||{};
+  const bought=S.bought[KEY(who)]||{};
+  theirs=[...theirs].sort((a,b)=>(bought[a.id]?1:0)-(bought[b.id]?1:0));   // gekochte cadeaus onderaan
   for (const it of theirs){
+    const b=bought[it.id];
+    const byName=b?(PEOPLE.find(p=>KEY(p)===b.by)||b.by):"";
+    const mineBuy=b&&b.by===KEY(S.me);
+    const boughtRow=h("label",{class:"bought-row"},
+      h("input",{type:"checkbox",id:"bought-"+it.id,checked:!!b,disabled:b&&!mineBuy,onchange:e=>toggleBought(who,it,e.target.checked)}),
+      h("span",{},b?"Gekocht":"Ik heb dit gekocht"),
+      b?h("span",{class:"muted"},mineBuy?`door jou, ${when(b.at)}`:`door ${byName}, ${when(b.at)}`):null);
     const notes=Object.entries(allNotes[it.id]||{}).map(([id,n])=>({id,...n})).sort((a,b)=>a.createdAt-b.createdAt);
     const input=h("input",{type:"text",id:"note-"+it.id,maxlength:"400",placeholder:"Notitie voor de anderen…"});
-    const below=h("div",{class:"notes"},
+    const below=[boughtRow,h("div",{class:"notes"},
       notes.map(n=>h("div",{class:"note"},
         h("div",{class:"by"},h("span",{},PEOPLE.find(p=>KEY(p)===n.author)||n.author),
           h("span",{style:"display:flex;gap:8px"},when(n.createdAt),
@@ -341,10 +355,15 @@ function renderTheirs(v,who,theirs){
         h("div",{class:"txt"},n.text))),
       h("div",{class:"quick"},QUICK.map(q=>h("button",{class:"chip",type:"button",onclick:()=>addNote(who,it,q)},q))),
       h("form",{class:"note-form",onsubmit:e=>{e.preventDefault();const t=input.value.trim(); if(t){addNote(who,it,t); input.value="";}}},
-        input,h("button",{class:"btn",type:"submit"},"Plaats")));
-    list.append(itemCard(it,{below}));
+        input,h("button",{class:"btn",type:"submit"},"Plaats")))];
+    const card=itemCard(it,{below}); if(b) card.classList.add("bought");
+    list.append(card);
   }
   s.append(list); v.append(s);
+}
+function toggleBought(who,it,on){
+  const r=ref(db,`bought/${KEY(who)}/${it.id}`);
+  (on?set(r,{by:KEY(S.me),at:Date.now()}):remove(r)).then(()=>toast(on?"Afgevinkt als gekocht":"Niet meer gekocht"),fail);
 }
 function addNote(who,it,text){
   set(push(ref(db,`notes/${KEY(who)}/${it.id}`)),{author:KEY(S.me),text,createdAt:Date.now()}).catch(fail);
@@ -360,6 +379,7 @@ function listenData(){
   for (const p of PEOPLE){
     if (p===S.me) continue;                     // eigen notities: database geeft ze toch niet, dus ook niet vragen
     subs.push(onValue(ref(db,"notes/"+KEY(p)),s=>{S.notes[KEY(p)]=s.val()||{}; render();},fail));
+    subs.push(onValue(ref(db,"bought/"+KEY(p)),s=>{S.bought[KEY(p)]=s.val()||{}; render();},fail));
   }
 }
 render();
@@ -371,7 +391,7 @@ if (firebaseConfig.apiKey){
     S.ready=true;
     const n = u?.email ? PEOPLE.find(p=>KEY(p)+DOMAIN===u.email.toLowerCase()) : null;
     if (n && n!==S.me){ S.me=n; S.tab=n; S.login=null; listenData(); }
-    if (!n){ subs.forEach(x=>x()); subs.length=0; S.me=null; S.items={}; S.notes={}; }
+    if (!n){ subs.forEach(x=>x()); subs.length=0; S.me=null; S.items={}; S.notes={}; S.bought={}; }
     if (u && !n){ signOut(auth); S.loginErr="Dit account hoort niet bij de lijstjes."; }
     render();
   });
