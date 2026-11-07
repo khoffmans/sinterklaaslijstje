@@ -133,7 +133,6 @@ const PEOPLE = ["Freek","Kelly","Kevin","Annemiek","Petra","Martin"];
 const KEY = n => n.toLowerCase();
 const DOMAIN = "@sinterklaaslijstje.app";   // moet gelijk zijn aan database.rules.json
 const COLORS = {Freek:"#3f6e9c",Kelly:"#a2477a",Kevin:"#b3261e",Annemiek:"#2f7a4a",Petra:"#8a5a1e",Martin:"#5b4a9e"};
-const QUICK = ["Wil iemand samen geven?","Heeft dit al"];
 
 const S = { ready:false, names:{}, me:null, uid:null, tab:null, items:{}, notes:{}, bought:{}, editing:null, draftPhoto:null,
   login:null /* {name} */, loginErr:"", busy:false, clearForm:false };
@@ -353,7 +352,6 @@ function renderTheirs(v,who,theirs){
           h("span",{style:"display:flex;gap:8px"},when(n.createdAt),
             n.author===KEY(S.me)?h("button",{class:"link-btn",style:"font-size:12px",onclick:()=>remove(ref(db,`notes/${KEY(who)}/${it.id}/${n.id}`)).catch(fail)},"wis"):null)),
         h("div",{class:"txt"},n.text))),
-      h("div",{class:"quick"},QUICK.map(q=>h("button",{class:"chip",type:"button",onclick:()=>addNote(who,it,q)},q))),
       h("form",{class:"note-form",onsubmit:e=>{e.preventDefault();const t=input.value.trim(); if(t){addNote(who,it,t); input.value="";}}},
         input,h("button",{class:"btn",type:"submit"},"Plaats")))];
     const card=itemCard(it,{below}); if(b) card.classList.add("bought");
